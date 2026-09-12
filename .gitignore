@@ -11,6 +11,11 @@ venv/
 *.db
 data/
 
+# Deploy runtime artifacts (rendered config, extracted Grafana tarball)
+.grafana-runtime/
+grafana-v*/
+logs/
+
 # Env / secrets
 .env
 *.local

@@ -10,14 +10,18 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COLLECTOR_USER="mikandro"
-DATA_DIR="/home/${COLLECTOR_USER}/telemetry-pi/data"
+# Auto-detect the user and paths so nothing is hardcoded: the collector runs as
+# whoever invoked sudo, and everything lives under wherever the repo is cloned.
+COLLECTOR_USER="${SUDO_USER:-$(id -un)}"
+DATA_DIR="${REPO_DIR}/data"
 DB_PATH="${DATA_DIR}/telemetry.sqlite"
+VENV_PY="${REPO_DIR}/.venv/bin/python"
 
 if [[ "${EUID}" -ne 0 ]]; then
     echo "This script must run as root (use: sudo bash $0)" >&2
     exit 1
 fi
+echo "Installing for user '${COLLECTOR_USER}' from ${REPO_DIR}"
 
 echo "==> [1/6] Installing Grafana APT repository"
 apt-get update -qq
@@ -50,14 +54,23 @@ if compgen -G "${DB_PATH}*" > /dev/null; then
 fi
 
 echo "==> [5/6] Installing collector systemd service"
-install -m 644 "${REPO_DIR}/systemd/telemetry-collector.service" \
-    /etc/systemd/system/telemetry-collector.service
+# Render the unit template with the detected user and paths.
+sed -e "s|@USER@|${COLLECTOR_USER}|g" \
+    -e "s|@GROUP@|telemetry|g" \
+    -e "s|@WORKDIR@|${REPO_DIR}|g" \
+    -e "s|@VENV_PY@|${VENV_PY}|g" \
+    -e "s|@DB@|${DB_PATH}|g" \
+    "${REPO_DIR}/systemd/telemetry-collector.service.in" \
+    > /etc/systemd/system/telemetry-collector.service
+chmod 644 /etc/systemd/system/telemetry-collector.service
 systemctl daemon-reload
 systemctl enable --now telemetry-collector.service
 
 echo "==> [6/6] Provisioning Grafana datasource + dashboard"
-install -m 644 "${REPO_DIR}/grafana/provisioning/datasources/sqlite.yaml" \
-    /etc/grafana/provisioning/datasources/pi-telemetry.yaml
+sed "s|@DB@|${DB_PATH}|g" \
+    "${REPO_DIR}/grafana/provisioning/datasources/sqlite.yaml.in" \
+    > /etc/grafana/provisioning/datasources/pi-telemetry.yaml
+chmod 644 /etc/grafana/provisioning/datasources/pi-telemetry.yaml
 install -m 644 "${REPO_DIR}/grafana/provisioning/dashboards/telemetry.yaml" \
     /etc/grafana/provisioning/dashboards/pi-telemetry.yaml
 mkdir -p /var/lib/grafana/dashboards

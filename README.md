@@ -75,14 +75,17 @@ Grafana runs as a service on the Pi and serves its UI over the network, so no
 monitor is needed. View the dashboards from any browser on the LAN at
 `http://mypi4.local:3000` (default login `admin` / `admin`).
 
-Everything is provisioned from this repo so it survives a reflash:
+Everything is provisioned from this repo so it survives a reflash. Config files
+are templates (`.in`) with `@PLACEHOLDER@` values; the deploy scripts render
+them with the invoking user and the repo's actual location, so nothing is tied
+to a specific username or home directory:
 
 ```
-systemd/telemetry-collector.service   # runs the collector every 60s as a service
-grafana/provisioning/datasources/     # SQLite datasource (frser plugin)
-grafana/provisioning/dashboards/      # dashboard provider
-grafana/dashboards/pi-telemetry.json  # the dashboard itself, versioned here
-deploy/pi-grafana-setup.sh            # one-shot installer (run on the Pi as root)
+systemd/telemetry-collector.service.in   # collector service template
+grafana/provisioning/datasources/*.in     # SQLite datasource template (frser plugin)
+grafana/provisioning/dashboards/          # dashboard provider
+grafana/dashboards/pi-telemetry.json      # the dashboard itself, versioned here
+deploy/pi-grafana-setup.sh                # one-shot installer (run on the Pi as root)
 ```
 
 Deploy (on the Pi, from the repo root):

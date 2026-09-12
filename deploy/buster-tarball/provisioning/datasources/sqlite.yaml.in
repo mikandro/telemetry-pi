@@ -1,0 +1,13 @@
+# Rendered by run.sh: @DB@ -> the SQLite path under the repo's data dir.
+apiVersion: 1
+
+datasources:
+  - name: PiTelemetry
+    uid: pitelemetry-sqlite
+    type: frser-sqlite-datasource
+    access: proxy
+    isDefault: true
+    jsonData:
+      path: @DB@
+    version: 1
+    editable: true

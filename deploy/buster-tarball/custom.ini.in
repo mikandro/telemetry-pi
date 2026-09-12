@@ -1,0 +1,16 @@
+# Grafana config template for the no-sudo tarball install. @PROVISIONING@ is
+# substituted by run.sh with a rendered runtime provisioning dir, so this file
+# is not tied to any particular user or install location.
+
+[paths]
+provisioning = @PROVISIONING@
+
+[server]
+http_port = 3000
+
+[analytics]
+reporting_enabled = false
+check_for_updates = false
+
+[log]
+level = info

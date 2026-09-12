@@ -1,0 +1,22 @@
+[Unit]
+Description=Pi telemetry collector (writes system metrics to local SQLite)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Placeholders (@USER@, @WORKDIR@, ...) are substituted by
+# deploy/pi-grafana-setup.sh at install time, so nothing here is tied to a
+# specific user or home directory.
+User=@USER@
+Group=@GROUP@
+# Group-writable files so the grafana user (also in the group) can read the
+# SQLite WAL/-shm sidecar files.
+UMask=0002
+WorkingDirectory=@WORKDIR@
+ExecStart=@VENV_PY@ -m collector.collector --interval 60 --db @DB@
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

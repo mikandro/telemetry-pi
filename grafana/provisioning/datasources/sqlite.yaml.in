@@ -1,3 +1,5 @@
+# Grafana datasource provisioning template. @DB@ is substituted with the
+# SQLite path at deploy time (see deploy/pi-grafana-setup.sh).
 apiVersion: 1
 
 datasources:
@@ -7,6 +9,6 @@ datasources:
     access: proxy
     isDefault: true
     jsonData:
-      path: /home/mikandro/telemetry-pi/data/telemetry.sqlite
+      path: @DB@
     version: 1
     editable: true

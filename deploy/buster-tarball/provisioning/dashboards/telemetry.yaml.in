@@ -1,3 +1,4 @@
+# Rendered by run.sh: @DASHBOARDS@ -> the repo's grafana/dashboards dir.
 apiVersion: 1
 
 providers:
@@ -7,6 +8,5 @@ providers:
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      # Points straight at the version-controlled dashboard in the repo.
-      path: /home/mikandro/telemetry-pi/grafana/dashboards
+      path: @DASHBOARDS@
       foldersFromFilesStructure: false

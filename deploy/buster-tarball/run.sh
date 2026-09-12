@@ -9,12 +9,27 @@
 #
 set -euo pipefail
 
-ROOT="/home/mikandro/telemetry-pi"
+# Derive everything from where this script lives, so there are no hardcoded
+# user or home paths. run.sh is at <repo>/deploy/buster-tarball/run.sh.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${HERE}/../.." && pwd)"
 HP="${ROOT}/grafana-v9.5.21"
-CFG="${ROOT}/deploy/buster-tarball/custom.ini"
 DB="${ROOT}/data/telemetry.sqlite"
+RUNTIME="${ROOT}/.grafana-runtime"
+CFG="${RUNTIME}/custom.ini"
 
-mkdir -p "${ROOT}/data" "${ROOT}/logs"
+mkdir -p "${ROOT}/data" "${ROOT}/logs" \
+    "${RUNTIME}/provisioning/datasources" "${RUNTIME}/provisioning/dashboards"
+
+# Render config + provisioning templates with the resolved paths.
+sed "s|@PROVISIONING@|${RUNTIME}/provisioning|g" \
+    "${HERE}/custom.ini.in" > "${CFG}"
+sed "s|@DB@|${DB}|g" \
+    "${HERE}/provisioning/datasources/sqlite.yaml.in" \
+    > "${RUNTIME}/provisioning/datasources/sqlite.yaml"
+sed "s|@DASHBOARDS@|${ROOT}/grafana/dashboards|g" \
+    "${HERE}/provisioning/dashboards/telemetry.yaml.in" \
+    > "${RUNTIME}/provisioning/dashboards/telemetry.yaml"
 
 if ! pgrep -f "collector.collector" > /dev/null; then
     # PYTHONPATH so `-m collector.collector` resolves regardless of cwd.
