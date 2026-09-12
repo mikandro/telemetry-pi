@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: PiTelemetry
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      # Points straight at the version-controlled dashboard in the repo.
+      path: /home/mikandro/telemetry-pi/grafana/dashboards
+      foldersFromFilesStructure: false

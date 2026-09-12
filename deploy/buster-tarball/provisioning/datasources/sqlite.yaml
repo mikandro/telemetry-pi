@@ -1,0 +1,12 @@
+apiVersion: 1
+
+datasources:
+  - name: PiTelemetry
+    uid: pitelemetry-sqlite
+    type: frser-sqlite-datasource
+    access: proxy
+    isDefault: true
+    jsonData:
+      path: /home/mikandro/telemetry-pi/data/telemetry.sqlite
+    version: 1
+    editable: true

@@ -113,8 +113,8 @@
       "targets": [
         {
           "refId": "A",
-          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, cpu_percent FROM readings ORDER BY time;",
-          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, cpu_percent FROM readings ORDER BY time;",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, cpu_percent FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, cpu_percent FROM readings ORDER BY time;",
           "timeColumns": ["time"],
           "queryType": "time series"
         }
@@ -130,8 +130,8 @@
       "targets": [
         {
           "refId": "A",
-          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, cpu_temp_c FROM readings ORDER BY time;",
-          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, cpu_temp_c FROM readings ORDER BY time;",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, cpu_temp_c FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, cpu_temp_c FROM readings ORDER BY time;",
           "timeColumns": ["time"],
           "queryType": "time series"
         }
@@ -147,8 +147,8 @@
       "targets": [
         {
           "refId": "A",
-          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, mem_percent, disk_percent, swap_percent FROM readings ORDER BY time;",
-          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, mem_percent, disk_percent, swap_percent FROM readings ORDER BY time;",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, mem_percent, disk_percent, swap_percent FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, mem_percent, disk_percent, swap_percent FROM readings ORDER BY time;",
           "timeColumns": ["time"],
           "queryType": "time series"
         }
@@ -164,8 +164,8 @@
       "targets": [
         {
           "refId": "A",
-          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, net_rx_rate, net_tx_rate FROM readings ORDER BY time;",
-          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, net_rx_rate, net_tx_rate FROM readings ORDER BY time;",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, net_rx_rate, net_tx_rate FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, net_rx_rate, net_tx_rate FROM readings ORDER BY time;",
           "timeColumns": ["time"],
           "queryType": "time series"
         }
@@ -181,8 +181,8 @@
       "targets": [
         {
           "refId": "A",
-          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, core_volts FROM readings ORDER BY time;",
-          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, core_volts FROM readings ORDER BY time;",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, core_volts FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, core_volts FROM readings ORDER BY time;",
           "timeColumns": ["time"],
           "queryType": "time series"
         }
@@ -198,8 +198,8 @@
       "targets": [
         {
           "refId": "A",
-          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, load1, load5, load15 FROM readings ORDER BY time;",
-          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, load1, load5, load15 FROM readings ORDER BY time;",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, load1, load5, load15 FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, load1, load5, load15 FROM readings ORDER BY time;",
           "timeColumns": ["time"],
           "queryType": "time series"
         }
