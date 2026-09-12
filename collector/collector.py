@@ -19,6 +19,7 @@ from types import FrameType
 from typing import Optional
 
 from .metrics import Sampler
+from .serial_reader import AmbientReader
 from .storage import open_storage
 
 log = logging.getLogger("collector")
@@ -56,29 +57,53 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         help="take a single sample, print it as JSON, and exit (no db write unless --db given explicitly)",
     )
     p.add_argument("--disk-path", default="/", help="filesystem to report usage for (default: /)")
+    p.add_argument(
+        "--serial-port",
+        default=None,
+        help="serial port of the Pico DHT20 sensor node, e.g. /dev/pico "
+        "(omit to run without ambient temp/humidity)",
+    )
     p.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     return p.parse_args(argv)
 
 
-def run_once(disk_path: str) -> dict:
+def _make_ambient_reader(serial_port: Optional[str]) -> Optional[AmbientReader]:
+    if not serial_port:
+        return None
+    return AmbientReader(port=serial_port).start()
+
+
+def run_once(disk_path: str, serial_port: Optional[str] = None) -> dict:
     """Take one sample. CPU% and net rates need an interval to measure over,
     so prime the sampler, wait briefly, then read."""
-    sampler = Sampler(disk_path=disk_path)
-    time.sleep(1.0)
-    return sampler.sample().as_dict()
+    ambient = _make_ambient_reader(serial_port)
+    sampler = Sampler(disk_path=disk_path, ambient_reader=ambient)
+    # Give the sensor node a moment to push a first reading over serial.
+    time.sleep(3.0 if ambient else 1.0)
+    try:
+        return sampler.sample().as_dict()
+    finally:
+        if ambient:
+            ambient.stop()
 
 
-def run_loop(db_path: str, interval: float, disk_path: str) -> None:
+def run_loop(db_path: str, interval: float, disk_path: str, serial_port: Optional[str] = None) -> None:
     stopper = _Stopper()
-    sampler = Sampler(disk_path=disk_path)
+    ambient = _make_ambient_reader(serial_port)
+    sampler = Sampler(disk_path=disk_path, ambient_reader=ambient)
     with open_storage(db_path) as store:
         log.info("writing to %s every %.0fs (%d rows so far)", db_path, interval, store.count())
+        if serial_port:
+            log.info("reading ambient sensor from %s", serial_port)
         while not stopper.stopped:
             start = time.monotonic()
             try:
                 reading = sampler.sample()
                 store.write(reading)
-                log.debug("wrote sample cpu=%.1f%% temp=%s", reading.cpu_percent, reading.cpu_temp_c)
+                log.debug(
+                    "wrote sample cpu=%.1f%% temp=%s ambient=%s",
+                    reading.cpu_percent, reading.cpu_temp_c, reading.ambient_temp_c,
+                )
             except Exception:  # keep the loop alive across transient failures
                 log.exception("sample/write failed, continuing")
             # Sleep the remainder of the interval, interruptibly.
@@ -88,6 +113,8 @@ def run_loop(db_path: str, interval: float, disk_path: str) -> None:
                 nap = min(1.0, remaining)
                 time.sleep(nap)
                 remaining -= nap
+        if ambient:
+            ambient.stop()
         log.info("stopped (%d rows total)", store.count())
 
 
@@ -99,10 +126,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
 
     if args.once:
-        print(json.dumps(run_once(args.disk_path), indent=2))
+        print(json.dumps(run_once(args.disk_path, args.serial_port), indent=2))
         return 0
 
-    run_loop(args.db, args.interval, args.disk_path)
+    run_loop(args.db, args.interval, args.disk_path, args.serial_port)
     return 0
 
 

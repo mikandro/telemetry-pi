@@ -66,6 +66,11 @@ class Reading:
     throttled_now: Optional[int]
     throttled_since_boot: Optional[int]
 
+    # External DHT20 sensor node (via the Pico over serial). None when no
+    # sensor node is attached or its readings have gone stale.
+    ambient_temp_c: Optional[float]
+    ambient_humidity_pct: Optional[float]
+
     def as_dict(self) -> dict:
         return asdict(self)
 
@@ -136,8 +141,11 @@ class Sampler:
     """Produces Readings, tracking prior counters so CPU% and network rates
     are measured over the interval between samples rather than since boot."""
 
-    def __init__(self, disk_path: str = "/") -> None:
+    def __init__(self, disk_path: str = "/", ambient_reader=None) -> None:
         self.disk_path = disk_path
+        # Optional object with a .read() -> (temp_c, humidity_pct) method
+        # (collector.serial_reader.AmbientReader). Duck-typed to avoid coupling.
+        self.ambient_reader = ambient_reader
         # Prime psutil's internal CPU counters so the first real sample is
         # measured against this call rather than against process start.
         psutil.cpu_percent(interval=None)
@@ -161,6 +169,11 @@ class Sampler:
         disk = psutil.disk_usage(self.disk_path)
         load1, load5, load15 = os.getloadavg()
 
+        if self.ambient_reader is not None:
+            ambient_temp_c, ambient_humidity_pct = self.ambient_reader.read()
+        else:
+            ambient_temp_c, ambient_humidity_pct = None, None
+
         return Reading(
             ts=datetime.now(timezone.utc).isoformat(),
             cpu_percent=psutil.cpu_percent(interval=None),
@@ -182,4 +195,6 @@ class Sampler:
             cpu_temp_c=_cpu_temp_c(),
             core_volts=_core_volts(),
             **_throttled(),
+            ambient_temp_c=ambient_temp_c,
+            ambient_humidity_pct=ambient_humidity_pct,
         )

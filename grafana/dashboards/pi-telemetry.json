@@ -204,6 +204,40 @@
           "queryType": "time series"
         }
       ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Ambient temperature (°C)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "celsius", "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, ambient_temp_c FROM readings WHERE ambient_temp_c IS NOT NULL AND CAST(strftime('%s', ts) AS INTEGER) BETWEEN $__from / 1000 AND $__to / 1000 ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, ambient_temp_c FROM readings WHERE ambient_temp_c IS NOT NULL AND CAST(strftime('%s', ts) AS INTEGER) BETWEEN $__from / 1000 AND $__to / 1000 ORDER BY time;",
+          "timeColumns": ["time"],
+          "queryType": "time series"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Ambient humidity (%)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "humidity", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, ambient_humidity_pct FROM readings WHERE ambient_humidity_pct IS NOT NULL AND CAST(strftime('%s', ts) AS INTEGER) BETWEEN $__from / 1000 AND $__to / 1000 ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, ambient_humidity_pct FROM readings WHERE ambient_humidity_pct IS NOT NULL AND CAST(strftime('%s', ts) AS INTEGER) BETWEEN $__from / 1000 AND $__to / 1000 ORDER BY time;",
+          "timeColumns": ["time"],
+          "queryType": "time series"
+        }
+      ]
     }
   ]
 }

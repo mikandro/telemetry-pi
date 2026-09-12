@@ -1,0 +1,11 @@
+# Stable device name for the Raspberry Pi Pico running MicroPython, so the
+# collector can use /dev/pico instead of a /dev/ttyACM* number that can change
+# across reboots or when other USB-serial devices are present.
+#
+# Install on the Pi:
+#     sudo cp deploy/udev/99-pico.rules /etc/udev/rules.d/
+#     sudo udevadm control --reload-rules && sudo udevadm trigger
+# Then replug the Pico and check:  ls -l /dev/pico
+#
+# 2e8a:0005 is the Raspberry Pi Pico USB CDC (MicroPython) vendor/product id.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", ATTRS{idProduct}=="0005", SYMLINK+="pico", MODE="0660"

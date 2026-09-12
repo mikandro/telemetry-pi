@@ -14,7 +14,9 @@ Group=@GROUP@
 # SQLite WAL/-shm sidecar files.
 UMask=0002
 WorkingDirectory=@WORKDIR@
-ExecStart=@VENV_PY@ -m collector.collector --interval 60 --db @DB@
+# --serial-port is harmless when no Pico sensor node is attached (the reader
+# just retries and ambient columns stay NULL).
+ExecStart=@VENV_PY@ -m collector.collector --interval 60 --db @DB@ --serial-port /dev/pico
 Restart=on-failure
 RestartSec=5
 

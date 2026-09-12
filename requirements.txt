@@ -1,1 +1,4 @@
 psutil==6.1.0
+# Only needed when a Pico DHT20 sensor node is attached (--serial-port). The
+# collector imports it lazily and runs fine without it.
+pyserial==3.5

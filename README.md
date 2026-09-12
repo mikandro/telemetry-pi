@@ -45,6 +45,8 @@ Per sample (default every 60s):
 - **Uptime**
 - **Pi power/thermal** (via `vcgencmd`, when present): SoC temperature, core
   voltage, and decoded throttling/under-voltage flags (now + since-boot)
+- **Ambient temperature + humidity** (optional, via a Pico DHT20 sensor node
+  over USB serial; NULL when no node is attached)
 
 Off-device (no `vcgencmd`), the Pi-specific fields are recorded as `NULL` so the
 collector runs anywhere for development.
@@ -102,6 +104,43 @@ WAL sidecar files.
 The dashboard shows CPU %, CPU temperature, memory/disk/swap, network
 throughput, core voltage, load average, and current-value stat panels including
 an under-voltage indicator.
+
+## External temperature monitor (Pico DHT20 sensor node)
+
+An optional two-tier extension: a Raspberry Pi Pico reads a DHT20
+temperature/humidity sensor and streams readings to the Pi 4 over USB serial;
+the Pi 4 folds them into the collector alongside the system metrics. The
+collector runs fine with or without the node attached (ambient columns are just
+NULL when it is absent).
+
+```
+Pico (MicroPython)                    Pi 4
++-------------------+   USB serial   +--------------------------+
+| DHT20 over I2C    | -------------> | AmbientReader (thread)   |
+| -> JSON per line  |  {"ambient_... | -> Sampler -> SQLite     |
++-------------------+                +--------------------------+
+```
+
+Setup:
+1. Flash the Pico and wire the DHT20 — see [`pico/README.md`](pico/README.md).
+2. Give the Pico a stable device name on the Pi:
+   ```bash
+   sudo cp deploy/udev/99-pico.rules /etc/udev/rules.d/
+   sudo udevadm control --reload-rules && sudo udevadm trigger
+   ```
+3. Install pyserial (`pip install -r requirements.txt`) and run the collector
+   with the port:
+   ```bash
+   python -m collector.collector --interval 60 --serial-port /dev/pico
+   ```
+   (The systemd unit already passes `--serial-port /dev/pico`; it is harmless
+   when no node is attached.)
+
+The dashboard has ambient temperature and humidity panels that appear once data
+arrives. Why a Pico rather than wiring the DHT20 straight to the Pi: it keeps
+timing-sensitive sensor I/O on the microcontroller and demonstrates a
+sensor-node → gateway → cloud topology. The tradeoff is USB-tethered (the Pico H
+has no WiFi) and short-range.
 
 ## Development
 

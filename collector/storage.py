@@ -39,10 +39,19 @@ CREATE TABLE IF NOT EXISTS readings (
     under_voltage_now         INTEGER,
     under_voltage_since_boot  INTEGER,
     throttled_now             INTEGER,
-    throttled_since_boot      INTEGER
+    throttled_since_boot      INTEGER,
+    ambient_temp_c            REAL,
+    ambient_humidity_pct      REAL
 );
 CREATE INDEX IF NOT EXISTS idx_readings_ts ON readings (ts);
 """
+
+# Columns that may be absent in databases created by an older schema version.
+# Added via ALTER TABLE on startup so existing data keeps working.
+_MIGRATION_COLUMNS = {
+    "ambient_temp_c": "REAL",
+    "ambient_humidity_pct": "REAL",
+}
 
 
 class Storage:
@@ -57,7 +66,15 @@ class Storage:
         # WAL keeps writes from blocking Grafana's reads once Phase 2 lands.
         self._conn.execute("PRAGMA journal_mode=WAL;")
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Add any columns missing from an older-schema database."""
+        existing = {row[1] for row in self._conn.execute("PRAGMA table_info(readings)")}
+        for column, decl in _MIGRATION_COLUMNS.items():
+            if column not in existing:
+                self._conn.execute(f"ALTER TABLE readings ADD COLUMN {column} {decl}")
 
     def write(self, reading: Reading) -> None:
         data = reading.as_dict()
