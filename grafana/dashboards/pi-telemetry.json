@@ -1,0 +1,209 @@
+{
+  "uid": "pi-telemetry",
+  "title": "Pi Telemetry",
+  "tags": ["raspberry-pi", "telemetry"],
+  "timezone": "",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "CPU temperature (now)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT cpu_temp_c FROM readings ORDER BY ts DESC LIMIT 1;",
+          "rawQueryText": "SELECT cpu_temp_c FROM readings ORDER BY ts DESC LIMIT 1;",
+          "timeColumns": [],
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CPU % (now)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT cpu_percent FROM readings ORDER BY ts DESC LIMIT 1;",
+          "rawQueryText": "SELECT cpu_percent FROM readings ORDER BY ts DESC LIMIT 1;",
+          "timeColumns": [],
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Under-voltage since boot",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "OK", "color": "green" }, "1": { "text": "DETECTED", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT under_voltage_since_boot FROM readings ORDER BY ts DESC LIMIT 1;",
+          "rawQueryText": "SELECT under_voltage_since_boot FROM readings ORDER BY ts DESC LIMIT 1;",
+          "timeColumns": [],
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Uptime",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT uptime_s FROM readings ORDER BY ts DESC LIMIT 1;",
+          "rawQueryText": "SELECT uptime_s FROM readings ORDER BY ts DESC LIMIT 1;",
+          "timeColumns": [],
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU utilisation %",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, cpu_percent FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, cpu_percent FROM readings ORDER BY time;",
+          "timeColumns": ["time"],
+          "queryType": "time series"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "CPU temperature (°C)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "celsius", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, cpu_temp_c FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, cpu_temp_c FROM readings ORDER BY time;",
+          "timeColumns": ["time"],
+          "queryType": "time series"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Memory / disk / swap %",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, mem_percent, disk_percent, swap_percent FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, mem_percent, disk_percent, swap_percent FROM readings ORDER BY time;",
+          "timeColumns": ["time"],
+          "queryType": "time series"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Network throughput (bytes/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, net_rx_rate, net_tx_rate FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, net_rx_rate, net_tx_rate FROM readings ORDER BY time;",
+          "timeColumns": ["time"],
+          "queryType": "time series"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Core voltage (V)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "volt", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, core_volts FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, core_volts FROM readings ORDER BY time;",
+          "timeColumns": ["time"],
+          "queryType": "time series"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Load average",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "pitelemetry-sqlite" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, load1, load5, load15 FROM readings ORDER BY time;",
+          "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) * 1000 AS time, load1, load5, load15 FROM readings ORDER BY time;",
+          "timeColumns": ["time"],
+          "queryType": "time series"
+        }
+      ]
+    }
+  ]
+}

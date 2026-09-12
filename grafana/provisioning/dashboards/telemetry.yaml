@@ -1,0 +1,12 @@
+# Grafana dashboard provisioning: load JSON dashboards from disk.
+apiVersion: 1
+
+providers:
+  - name: PiTelemetry
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

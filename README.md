@@ -69,11 +69,36 @@ Inspect what landed:
 sqlite3 data/telemetry.sqlite "SELECT ts, cpu_percent, mem_percent, cpu_temp_c FROM readings ORDER BY ts DESC LIMIT 5;"
 ```
 
-## Running as a service (on the Pi)
+## Phase 2: Grafana on the Pi
 
-Once the data looks sane, run it under systemd so it survives reboots. A unit
-file will be added in Phase 2; for now the loop can be started manually or via
-`nohup`/`tmux`.
+Grafana runs as a service on the Pi and serves its UI over the network, so no
+monitor is needed. View the dashboards from any browser on the LAN at
+`http://mypi4.local:3000` (default login `admin` / `admin`).
+
+Everything is provisioned from this repo so it survives a reflash:
+
+```
+systemd/telemetry-collector.service   # runs the collector every 60s as a service
+grafana/provisioning/datasources/     # SQLite datasource (frser plugin)
+grafana/provisioning/dashboards/      # dashboard provider
+grafana/dashboards/pi-telemetry.json  # the dashboard itself, versioned here
+deploy/pi-grafana-setup.sh            # one-shot installer (run on the Pi as root)
+```
+
+Deploy (on the Pi, from the repo root):
+
+```bash
+sudo bash deploy/pi-grafana-setup.sh
+```
+
+This installs Grafana (armhf), the SQLite datasource plugin, runs the collector
+under systemd, and provisions the datasource + dashboard. Grafana (reader) and
+the collector (writer) share a `telemetry` group so Grafana can read the SQLite
+WAL sidecar files.
+
+The dashboard shows CPU %, CPU temperature, memory/disk/swap, network
+throughput, core voltage, load average, and current-value stat panels including
+an under-voltage indicator.
 
 ## Development
 

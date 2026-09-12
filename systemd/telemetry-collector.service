@@ -1,0 +1,21 @@
+[Unit]
+Description=Pi telemetry collector (Phase 1: writes system metrics to local SQLite)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mikandro
+Group=telemetry
+# Group-writable files so the grafana user (also in the telemetry group) can
+# read the SQLite WAL/-shm sidecar files.
+UMask=0002
+WorkingDirectory=/home/mikandro/telemetry-pi
+ExecStart=/home/mikandro/telemetry-pi/.venv/bin/python -m collector.collector \
+    --interval 60 \
+    --db /home/mikandro/telemetry-pi/data/telemetry.sqlite
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
