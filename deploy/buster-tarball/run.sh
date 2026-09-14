@@ -17,6 +17,10 @@ HP="${ROOT}/grafana-v9.5.21"
 DB="${ROOT}/data/telemetry.sqlite"
 RUNTIME="${ROOT}/.grafana-runtime"
 CFG="${RUNTIME}/custom.ini"
+# Pico DHT20 sensor node serial port (override with PICO_PORT=... if it differs;
+# /dev/ttyACM0 is stable here as the only USB-serial device). The collector runs
+# fine without it, so it is safe even when no Pico is attached.
+PICO_PORT="${PICO_PORT:-/dev/ttyACM0}"
 
 mkdir -p "${ROOT}/data" "${ROOT}/logs" \
     "${RUNTIME}/provisioning/datasources" "${RUNTIME}/provisioning/dashboards"
@@ -34,14 +38,16 @@ sed "s|@DASHBOARDS@|${ROOT}/grafana/dashboards|g" \
 if ! pgrep -f "collector.collector" > /dev/null; then
     # PYTHONPATH so `-m collector.collector` resolves regardless of cwd.
     nohup env PYTHONPATH="${ROOT}" "${ROOT}/.venv/bin/python" -m collector.collector \
-        --interval 15 --db "${DB}" \
+        --interval 15 --db "${DB}" --serial-port "${PICO_PORT}" \
         > "${ROOT}/logs/collector.log" 2>&1 &
     echo "collector started (pid $!)"
 else
     echo "collector already running"
 fi
 
-if ! pgrep -f "grafana-server" > /dev/null; then
+# The tarball's grafana-server launches a process that shows as "grafana
+# server" (space), so match both spellings or the guard never detects it.
+if ! pgrep -f "grafana[- ]server" > /dev/null; then
     nohup "${HP}/bin/grafana-server" -homepath "${HP}" -config "${CFG}" \
         > "${ROOT}/logs/grafana.log" 2>&1 &
     echo "grafana started (pid $!)"
