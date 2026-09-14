@@ -45,7 +45,9 @@ else
     echo "collector already running"
 fi
 
-if ! pgrep -f "grafana-server" > /dev/null; then
+# The tarball's grafana-server launches a process that shows as "grafana
+# server" (space), so match both spellings or the guard never detects it.
+if ! pgrep -f "grafana[- ]server" > /dev/null; then
     nohup "${HP}/bin/grafana-server" -homepath "${HP}" -config "${CFG}" \
         > "${ROOT}/logs/grafana.log" 2>&1 &
     echo "grafana started (pid $!)"
