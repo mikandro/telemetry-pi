@@ -12,15 +12,17 @@ timestamps them on receipt.
 - `main.py` — MicroPython firmware: read the sensor, print one JSON line per reading.
 
 ## Wiring (DHT20 to Pico)
-Defaults in `main.py` use I2C0 on GP0/GP1. Change `SDA_PIN`/`SCL_PIN` if you wire
-it differently.
+Defaults in `main.py` use I2C1 on GP14/GP15, matching the Pi Hut "Let it Glow"
+Day 9 guide. Change `SDA_PIN`/`SCL_PIN` if you wire it differently. Hold the
+DHT20 with the waffle/holes face toward you; legs left to right are VDD, SDA,
+GND, SCL.
 
-| DHT20 pin | Pico pin            |
-|-----------|---------------------|
-| VCC / VIN | 3V3 OUT (phys. 36)  |
-| GND       | any GND             |
-| SDA       | GP0 (phys. 1)       |
-| SCL       | GP1 (phys. 2)       |
+| DHT20 leg (waffle facing you) | Pico pin           |
+|-------------------------------|--------------------|
+| Leg 1 (left) VDD              | 3V3 OUT (phys. 36) |
+| Leg 2 SDA                     | GP14 (phys. 19)    |
+| Leg 3 GND                     | GND (phys. 18)     |
+| Leg 4 SCL                     | GP15 (phys. 20)    |
 
 ## Flashing
 1. Install MicroPython on the Pico: hold BOOTSEL, plug in USB, drop the

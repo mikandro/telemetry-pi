@@ -15,9 +15,9 @@ from machine import I2C, Pin
 from aht20 import decode
 
 # --- wiring / config (change these to match how you wired the sensor) --------
-I2C_ID = 0
-SDA_PIN = 0        # GP0  -> DHT20 SDA
-SCL_PIN = 1        # GP1  -> DHT20 SCL
+I2C_ID = 1
+SDA_PIN = 14       # GP14 (physical pin 19) -> DHT20 SDA
+SCL_PIN = 15       # GP15 (physical pin 20) -> DHT20 SCL
 DHT20_ADDR = 0x38
 INTERVAL_S = 15
 # -----------------------------------------------------------------------------

@@ -45,6 +45,8 @@ echo "==> [4/6] Setting up shared 'telemetry' group and data dir permissions"
 groupadd -f telemetry
 usermod -aG telemetry "${COLLECTOR_USER}"
 usermod -aG telemetry grafana
+# dialout so the collector user can read the Pico serial device (/dev/pico).
+usermod -aG dialout "${COLLECTOR_USER}"
 mkdir -p "${DATA_DIR}"
 chgrp -R telemetry "${DATA_DIR}"
 chmod 2775 "${DATA_DIR}"            # setgid so new files inherit the group
