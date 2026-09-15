@@ -41,7 +41,15 @@ CREATE TABLE IF NOT EXISTS readings (
     throttled_now             INTEGER,
     throttled_since_boot      INTEGER,
     ambient_temp_c            REAL,
-    ambient_humidity_pct      REAL
+    ambient_humidity_pct      REAL,
+    outdoor_temp_c            REAL,
+    outdoor_humidity_pct      REAL,
+    indoor_abs_humidity_gm3   REAL,
+    outdoor_abs_humidity_gm3  REAL,
+    dew_point_c               REAL,
+    ventilation_state         TEXT,
+    should_ventilate          INTEGER,
+    mold_risk                 INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_readings_ts ON readings (ts);
 """
@@ -51,6 +59,14 @@ CREATE INDEX IF NOT EXISTS idx_readings_ts ON readings (ts);
 _MIGRATION_COLUMNS = {
     "ambient_temp_c": "REAL",
     "ambient_humidity_pct": "REAL",
+    "outdoor_temp_c": "REAL",
+    "outdoor_humidity_pct": "REAL",
+    "indoor_abs_humidity_gm3": "REAL",
+    "outdoor_abs_humidity_gm3": "REAL",
+    "dew_point_c": "REAL",
+    "ventilation_state": "TEXT",
+    "should_ventilate": "INTEGER",
+    "mold_risk": "INTEGER",
 }
 
 
