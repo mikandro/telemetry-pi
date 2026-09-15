@@ -21,6 +21,9 @@ CFG="${RUNTIME}/custom.ini"
 # /dev/ttyACM0 is stable here as the only USB-serial device). The collector runs
 # fine without it, so it is safe even when no Pico is attached.
 PICO_PORT="${PICO_PORT:-/dev/ttyACM0}"
+# Ventilation advisor: outdoor conditions from Open-Meteo for this location.
+LAT="${LAT:-48.137}"   # Munich
+LON="${LON:-11.575}"
 
 mkdir -p "${ROOT}/data" "${ROOT}/logs" \
     "${RUNTIME}/provisioning/datasources" "${RUNTIME}/provisioning/dashboards"
@@ -39,6 +42,7 @@ if ! pgrep -f "collector.collector" > /dev/null; then
     # PYTHONPATH so `-m collector.collector` resolves regardless of cwd.
     nohup env PYTHONPATH="${ROOT}" "${ROOT}/.venv/bin/python" -m collector.collector \
         --interval 15 --db "${DB}" --serial-port "${PICO_PORT}" \
+        --advisor --lat "${LAT}" --lon "${LON}" \
         > "${ROOT}/logs/collector.log" 2>&1 &
     echo "collector started (pid $!)"
 else
