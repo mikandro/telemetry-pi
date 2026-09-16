@@ -24,9 +24,9 @@ PICO_PORT="${PICO_PORT:-/dev/ttyACM0}"
 # Ventilation advisor: outdoor conditions from Open-Meteo for this location.
 LAT="${LAT:-48.137}"   # Munich
 LON="${LON:-11.575}"
-# Set PICO_DISPLAY=1 once the display firmware is flashed and the LCD + RGB ring
-# are wired, to push the ventilation advice onto them.
-PICO_DISPLAY="${PICO_DISPLAY:-0}"
+# Push the ventilation advice to the Pico LCD + RGB ring (firmware flashed and
+# hardware wired). Set PICO_DISPLAY=0 to disable if the display is disconnected.
+PICO_DISPLAY="${PICO_DISPLAY:-1}"
 DISPLAY_FLAG=""
 [ "${PICO_DISPLAY}" = "1" ] && DISPLAY_FLAG="--pico-display"
 
