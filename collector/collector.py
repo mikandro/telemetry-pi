@@ -10,6 +10,7 @@ database. No AWS yet: the goal here is to confirm the data looks sane.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
 import signal
@@ -18,9 +19,11 @@ import time
 from types import FrameType
 from typing import Optional
 
-from .metrics import Sampler
+from .advisor import Advisor
+from .metrics import Reading, Sampler
 from .serial_reader import AmbientReader
 from .storage import open_storage
+from .weather import DEFAULT_LAT, DEFAULT_LON, OutdoorSource
 
 log = logging.getLogger("collector")
 
@@ -63,6 +66,13 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         help="serial port of the Pico DHT20 sensor node, e.g. /dev/pico "
         "(omit to run without ambient temp/humidity)",
     )
+    p.add_argument(
+        "--advisor",
+        action="store_true",
+        help="enable the ventilation advisor (compares indoor vs outdoor absolute humidity)",
+    )
+    p.add_argument("--lat", type=float, default=DEFAULT_LAT, help="latitude for outdoor weather")
+    p.add_argument("--lon", type=float, default=DEFAULT_LON, help="longitude for outdoor weather")
     p.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     return p.parse_args(argv)
 
@@ -73,7 +83,26 @@ def _make_ambient_reader(serial_port: Optional[str]) -> Optional[AmbientReader]:
     return AmbientReader(port=serial_port).start()
 
 
-def run_once(disk_path: str, serial_port: Optional[str] = None) -> dict:
+def _enrich_with_advice(
+    reading: Reading,
+    advisor: Optional[Advisor],
+    weather: Optional[OutdoorSource],
+) -> Reading:
+    """Fill the ventilation-advisor fields on a reading, if enabled and there is
+    an indoor reading to reason about."""
+    if advisor is None or reading.ambient_temp_c is None or reading.ambient_humidity_pct is None:
+        return reading
+    outdoor = weather.current() if weather else None
+    advice = advisor.evaluate(reading.ambient_temp_c, reading.ambient_humidity_pct, outdoor)
+    return dataclasses.replace(reading, **advice.as_reading_fields())
+
+
+def run_once(
+    disk_path: str,
+    serial_port: Optional[str] = None,
+    advisor: Optional[Advisor] = None,
+    weather: Optional[OutdoorSource] = None,
+) -> dict:
     """Take one sample. CPU% and net rates need an interval to measure over,
     so prime the sampler, wait briefly, then read."""
     ambient = _make_ambient_reader(serial_port)
@@ -81,13 +110,20 @@ def run_once(disk_path: str, serial_port: Optional[str] = None) -> dict:
     # Give the sensor node a moment to push a first reading over serial.
     time.sleep(3.0 if ambient else 1.0)
     try:
-        return sampler.sample().as_dict()
+        return _enrich_with_advice(sampler.sample(), advisor, weather).as_dict()
     finally:
         if ambient:
             ambient.stop()
 
 
-def run_loop(db_path: str, interval: float, disk_path: str, serial_port: Optional[str] = None) -> None:
+def run_loop(
+    db_path: str,
+    interval: float,
+    disk_path: str,
+    serial_port: Optional[str] = None,
+    advisor: Optional[Advisor] = None,
+    weather: Optional[OutdoorSource] = None,
+) -> None:
     stopper = _Stopper()
     ambient = _make_ambient_reader(serial_port)
     sampler = Sampler(disk_path=disk_path, ambient_reader=ambient)
@@ -95,14 +131,16 @@ def run_loop(db_path: str, interval: float, disk_path: str, serial_port: Optiona
         log.info("writing to %s every %.0fs (%d rows so far)", db_path, interval, store.count())
         if serial_port:
             log.info("reading ambient sensor from %s", serial_port)
+        if advisor:
+            log.info("ventilation advisor enabled")
         while not stopper.stopped:
             start = time.monotonic()
             try:
-                reading = sampler.sample()
+                reading = _enrich_with_advice(sampler.sample(), advisor, weather)
                 store.write(reading)
                 log.debug(
-                    "wrote sample cpu=%.1f%% temp=%s ambient=%s",
-                    reading.cpu_percent, reading.cpu_temp_c, reading.ambient_temp_c,
+                    "wrote sample cpu=%.1f%% ambient=%s vent=%s",
+                    reading.cpu_percent, reading.ambient_temp_c, reading.ventilation_state,
                 )
             except Exception:  # keep the loop alive across transient failures
                 log.exception("sample/write failed, continuing")
@@ -125,11 +163,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
+    advisor = Advisor() if args.advisor else None
+    weather = OutdoorSource(lat=args.lat, lon=args.lon) if args.advisor else None
+
     if args.once:
-        print(json.dumps(run_once(args.disk_path, args.serial_port), indent=2))
+        print(json.dumps(run_once(args.disk_path, args.serial_port, advisor, weather), indent=2))
         return 0
 
-    run_loop(args.db, args.interval, args.disk_path, args.serial_port)
+    run_loop(args.db, args.interval, args.disk_path, args.serial_port, advisor, weather)
     return 0
 
 

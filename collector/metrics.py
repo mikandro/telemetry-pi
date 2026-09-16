@@ -71,6 +71,17 @@ class Reading:
     ambient_temp_c: Optional[float]
     ambient_humidity_pct: Optional[float]
 
+    # Ventilation advisor (populated by the collector loop when --advisor is on
+    # and an indoor reading is present). See collector/advisor.py.
+    outdoor_temp_c: Optional[float] = None
+    outdoor_humidity_pct: Optional[float] = None
+    indoor_abs_humidity_gm3: Optional[float] = None
+    outdoor_abs_humidity_gm3: Optional[float] = None
+    dew_point_c: Optional[float] = None
+    ventilation_state: Optional[str] = None
+    should_ventilate: Optional[int] = None
+    mold_risk: Optional[int] = None
+
     def as_dict(self) -> dict:
         return asdict(self)
 
