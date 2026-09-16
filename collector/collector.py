@@ -73,8 +73,43 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     )
     p.add_argument("--lat", type=float, default=DEFAULT_LAT, help="latitude for outdoor weather")
     p.add_argument("--lon", type=float, default=DEFAULT_LON, help="longitude for outdoor weather")
+    p.add_argument(
+        "--pico-display",
+        action="store_true",
+        help="push the ventilation advice to the Pico's LCD + RGB ring over serial "
+        "(requires the display firmware; needs --advisor and --serial-port)",
+    )
     p.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     return p.parse_args(argv)
+
+
+# Human-readable verdicts for the 16x2 LCD (<= 16 chars).
+_VERDICTS = {
+    "ventilate": "OPEN WINDOW",
+    "keep_closed": "KEEP CLOSED",
+    "comfortable": "COMFORTABLE",
+    "unknown": "NO OUTDOOR DATA",
+}
+
+
+def _display_command(reading: Reading) -> Optional[dict]:
+    """Build the Pico display command from an advisor-enriched reading."""
+    state = reading.ventilation_state
+    if state is None or reading.ambient_temp_c is None:
+        return None
+    it, irh = round(reading.ambient_temp_c), round(reading.ambient_humidity_pct or 0)
+    if reading.outdoor_temp_c is not None and reading.outdoor_humidity_pct is not None:
+        line1 = "In%dC%d Out%dC%d" % (it, irh, round(reading.outdoor_temp_c), round(reading.outdoor_humidity_pct))
+    else:
+        line1 = "In %dC %d%%RH" % (it, irh)
+    verdict = _VERDICTS.get(state, state.upper())
+    line2 = ("!" + verdict) if reading.mold_risk else verdict
+    return {
+        "line1": line1[:16],
+        "line2": line2[:16],
+        "state": state,
+        "mold": int(reading.mold_risk or 0),
+    }
 
 
 def _make_ambient_reader(serial_port: Optional[str]) -> Optional[AmbientReader]:
@@ -123,6 +158,7 @@ def run_loop(
     serial_port: Optional[str] = None,
     advisor: Optional[Advisor] = None,
     weather: Optional[OutdoorSource] = None,
+    pico_display: bool = False,
 ) -> None:
     stopper = _Stopper()
     ambient = _make_ambient_reader(serial_port)
@@ -133,11 +169,17 @@ def run_loop(
             log.info("reading ambient sensor from %s", serial_port)
         if advisor:
             log.info("ventilation advisor enabled")
+        if pico_display:
+            log.info("pushing advice to the Pico display")
         while not stopper.stopped:
             start = time.monotonic()
             try:
                 reading = _enrich_with_advice(sampler.sample(), advisor, weather)
                 store.write(reading)
+                if pico_display and ambient is not None:
+                    command = _display_command(reading)
+                    if command is not None:
+                        ambient.send(command)
                 log.debug(
                     "wrote sample cpu=%.1f%% ambient=%s vent=%s",
                     reading.cpu_percent, reading.ambient_temp_c, reading.ventilation_state,
@@ -170,7 +212,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(json.dumps(run_once(args.disk_path, args.serial_port, advisor, weather), indent=2))
         return 0
 
-    run_loop(args.db, args.interval, args.disk_path, args.serial_port, advisor, weather)
+    run_loop(args.db, args.interval, args.disk_path, args.serial_port, advisor, weather, args.pico_display)
     return 0
 
 
