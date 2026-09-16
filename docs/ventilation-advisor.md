@@ -57,9 +57,14 @@ Outdoor data comes from Open-Meteo (free, no key). If the network is down the
 advisor still reports indoor AH, dew point and mold risk; the ventilation state
 becomes `unknown`.
 
-## Follow-up (needs hardware)
-Drive the recommendation onto the kit's 16x2 I2C LCD (line 1: indoor/outdoor
-readings, line 2: the recommendation) and the RGB ring (green = ventilate now,
-amber = keep closed, red = mold risk), via a two-way serial protocol
-(Pi -> Pico command frames). A button press logs "I ventilated" so Grafana can
-show humidity dropping after the action.
+## Physical display (implemented)
+The recommendation is driven onto the kit's 16x2 I2C LCD (line 1: indoor/outdoor
+readings, line 2: the verdict) and the 12-LED RGB ring (blue = open window,
+amber = keep closed, green = comfortable, red = mold risk), over a two-way serial
+protocol (Pi -> Pico command frames; see pico/main.py and pico/README.md).
+Enable with `--pico-display` (or `PICO_DISPLAY=1` in the Buster runner) after
+flashing the display firmware and wiring the LCD + ring.
+
+## Follow-up ideas
+A button press to log "I ventilated" so Grafana can show humidity dropping after
+the action; use the slide potentiometer to set the target/mold thresholds live.

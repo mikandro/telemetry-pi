@@ -24,6 +24,11 @@ PICO_PORT="${PICO_PORT:-/dev/ttyACM0}"
 # Ventilation advisor: outdoor conditions from Open-Meteo for this location.
 LAT="${LAT:-48.137}"   # Munich
 LON="${LON:-11.575}"
+# Set PICO_DISPLAY=1 once the display firmware is flashed and the LCD + RGB ring
+# are wired, to push the ventilation advice onto them.
+PICO_DISPLAY="${PICO_DISPLAY:-0}"
+DISPLAY_FLAG=""
+[ "${PICO_DISPLAY}" = "1" ] && DISPLAY_FLAG="--pico-display"
 
 mkdir -p "${ROOT}/data" "${ROOT}/logs" \
     "${RUNTIME}/provisioning/datasources" "${RUNTIME}/provisioning/dashboards"
@@ -42,7 +47,7 @@ if ! pgrep -f "collector.collector" > /dev/null; then
     # PYTHONPATH so `-m collector.collector` resolves regardless of cwd.
     nohup env PYTHONPATH="${ROOT}" "${ROOT}/.venv/bin/python" -m collector.collector \
         --interval 15 --db "${DB}" --serial-port "${PICO_PORT}" \
-        --advisor --lat "${LAT}" --lon "${LON}" \
+        --advisor --lat "${LAT}" --lon "${LON}" ${DISPLAY_FLAG} \
         > "${ROOT}/logs/collector.log" 2>&1 &
     echo "collector started (pid $!)"
 else

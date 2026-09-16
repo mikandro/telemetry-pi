@@ -46,7 +46,9 @@ class AmbientReader:
         self.stale_after_s = stale_after_s
         self.reconnect_delay_s = reconnect_delay_s
         self._lock = threading.Lock()
+        self._write_lock = threading.Lock()
         self._latest: Optional[Tuple[float, float, float]] = None  # (mono, temp, hum)
+        self._serial = None  # set while connected, for sending display commands
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -74,6 +76,20 @@ class AmbientReader:
             return (None, None)
         return (temp, hum)
 
+    def send(self, obj: dict) -> bool:
+        """Send a display command (JSON line) to the Pico. No-op if not
+        connected or pyserial is missing. Returns True if written."""
+        with self._lock:
+            ser = self._serial
+        if ser is None:
+            return False
+        try:
+            with self._write_lock:
+                ser.write((json.dumps(obj) + "\n").encode("utf-8"))
+            return True
+        except (OSError, ValueError):
+            return False
+
     def ingest(self, line: bytes) -> bool:
         """Parse one raw line; update latest on success. Returns True if used.
 
@@ -93,6 +109,8 @@ class AmbientReader:
         while not self._stop.is_set():
             try:
                 with serial.Serial(self.port, self.baud, timeout=2) as ser:
+                    with self._lock:
+                        self._serial = ser
                     log.info("ambient reader connected to %s", self.port)
                     while not self._stop.is_set():
                         line = ser.readline()
@@ -103,3 +121,6 @@ class AmbientReader:
                 # be attached yet, or may have reset).
                 log.debug("serial unavailable (%s); retrying in %ss", exc, self.reconnect_delay_s)
                 self._stop.wait(self.reconnect_delay_s)
+            finally:
+                with self._lock:
+                    self._serial = None
