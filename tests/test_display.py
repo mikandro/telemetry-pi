@@ -1,24 +1,17 @@
 """Tests for the Pico display-command builder and serial send."""
 
-import dataclasses
 import json
 import os
 import time
 
 import pytest
 
-from collector.collector import _display_command
-from collector.metrics import Sampler
-from collector.serial_reader import AmbientReader
-
-
-def _reading(**over):
-    """A sampled Reading with advisor fields overridden for the test."""
-    return dataclasses.replace(Sampler().sample(), **over)
+from collector.serial_reader import AmbientReader, PicoDisplaySink, display_command
+from tests.conftest import make_reading as _reading
 
 
 def test_display_command_ventilate_with_outdoor():
-    cmd = _display_command(_reading(
+    cmd = display_command(_reading(
         ambient_temp_c=21.4, ambient_humidity_pct=60.0,
         outdoor_temp_c=5.2, outdoor_humidity_pct=80.0,
         ventilation_state="ventilate", mold_risk=1,
@@ -31,7 +24,7 @@ def test_display_command_ventilate_with_outdoor():
 
 
 def test_display_command_unknown_without_outdoor():
-    cmd = _display_command(_reading(
+    cmd = display_command(_reading(
         ambient_temp_c=21.0, ambient_humidity_pct=48.0,
         outdoor_temp_c=None, outdoor_humidity_pct=None,
         ventilation_state="unknown", mold_risk=0,
@@ -42,7 +35,24 @@ def test_display_command_unknown_without_outdoor():
 
 
 def test_display_command_none_when_no_advice():
-    assert _display_command(_reading(ventilation_state=None)) is None
+    assert display_command(_reading(ventilation_state=None)) is None
+
+
+class _RecordingReader:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, obj):
+        self.sent.append(obj)
+        return True
+
+
+def test_display_sink_sends_advice_and_skips_readings_without_it():
+    reader = _RecordingReader()
+    sink = PicoDisplaySink(reader)
+    sink.write(_reading(ventilation_state=None))
+    sink.write(_reading(ventilation_state="keep_closed", mold_risk=0))
+    assert [c["line2"] for c in reader.sent] == ["KEEP CLOSED"]
 
 
 def test_send_returns_false_when_not_connected():

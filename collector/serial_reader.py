@@ -8,6 +8,9 @@ so the system runs fine with or without the sensor node attached.
 
 Wire format from the Pico (one JSON object per line):
     {"ambient_temp_c": 21.5, "ambient_humidity_pct": 47.2}
+
+Wire format to the Pico (display commands, see PicoDisplaySink):
+    {"line1": "In21C60 Out5C80", "line2": "OPEN WINDOW", "state": "ventilate", "mold": 0}
 """
 
 from __future__ import annotations
@@ -17,6 +20,8 @@ import logging
 import threading
 import time
 from typing import Optional, Tuple
+
+from .metrics import Reading
 
 try:
     import serial  # pyserial
@@ -124,3 +129,45 @@ class AmbientReader:
             finally:
                 with self._lock:
                     self._serial = None
+
+
+# Human-readable verdicts for the 16x2 LCD (<= 16 chars).
+_VERDICTS = {
+    "ventilate": "OPEN WINDOW",
+    "keep_closed": "KEEP CLOSED",
+    "comfortable": "COMFORTABLE",
+    "unknown": "NO OUTDOOR DATA",
+}
+
+
+def display_command(reading: Reading) -> Optional[dict]:
+    """Build the Pico display command from an advised reading, or None when
+    there is no advice to show."""
+    state = reading.ventilation_state
+    if state is None or reading.ambient_temp_c is None:
+        return None
+    it, irh = round(reading.ambient_temp_c), round(reading.ambient_humidity_pct or 0)
+    if reading.outdoor_temp_c is not None and reading.outdoor_humidity_pct is not None:
+        line1 = "In%dC%d Out%dC%d" % (it, irh, round(reading.outdoor_temp_c), round(reading.outdoor_humidity_pct))
+    else:
+        line1 = "In %dC %d%%RH" % (it, irh)
+    verdict = _VERDICTS.get(state, state.upper())
+    line2 = ("!" + verdict) if reading.mold_risk else verdict
+    return {
+        "line1": line1[:16],
+        "line2": line2[:16],
+        "state": state,
+        "mold": int(reading.mold_risk or 0),
+    }
+
+
+class PicoDisplaySink:
+    """Shows each advised Reading on the Pico's LCD + RGB ring."""
+
+    def __init__(self, reader: AmbientReader) -> None:
+        self.reader = reader
+
+    def write(self, reading: Reading) -> None:
+        command = display_command(reading)
+        if command is not None:
+            self.reader.send(command)
