@@ -10,7 +10,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
-from typing import Optional, Protocol, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence
 
 from .advisor import Advisor
 from .metrics import Reading
@@ -19,14 +19,18 @@ from .weather import OutdoorSource
 log = logging.getLogger("collector.cycle")
 
 
-class ReadingSource(Protocol):
-    def sample(self) -> Reading: ...
+if TYPE_CHECKING:
+    # typing.Protocol needs Python 3.8; the Buster Pi runs 3.7, so these
+    # structural types exist for type checkers only.
+    from typing import Protocol
 
+    class ReadingSource(Protocol):
+        def sample(self) -> Reading: ...
 
-class Sink(Protocol):
-    """Somewhere a Reading is recorded or shown (SQLite, Pico display, stdout)."""
+    class Sink(Protocol):
+        """Somewhere a Reading is recorded or shown (SQLite, Pico display, stdout)."""
 
-    def write(self, reading: Reading) -> None: ...
+        def write(self, reading: Reading) -> None: ...
 
 
 class AdviceStep:

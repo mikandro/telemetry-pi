@@ -16,14 +16,17 @@ import sys
 import time
 from contextlib import ExitStack
 from types import FrameType
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .advisor import Advisor
-from .cycle import AdviceStep, CollectionCycle, Sink, StdoutSink
+from .cycle import AdviceStep, CollectionCycle, StdoutSink
 from .metrics import Sampler
 from .serial_reader import AmbientReader, PicoDisplaySink
 from .storage import Storage, open_storage
 from .weather import DEFAULT_LAT, DEFAULT_LON, OutdoorSource
+
+if TYPE_CHECKING:
+    from .cycle import Sink
 
 log = logging.getLogger("collector")
 
