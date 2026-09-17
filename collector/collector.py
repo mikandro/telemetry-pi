@@ -10,19 +10,19 @@ database. No AWS yet: the goal here is to confirm the data looks sane.
 from __future__ import annotations
 
 import argparse
-import dataclasses
-import json
 import logging
 import signal
 import sys
 import time
+from contextlib import ExitStack
 from types import FrameType
 from typing import Optional
 
 from .advisor import Advisor
-from .metrics import Reading, Sampler
-from .serial_reader import AmbientReader
-from .storage import open_storage
+from .cycle import AdviceStep, CollectionCycle, Sink, StdoutSink
+from .metrics import Sampler
+from .serial_reader import AmbientReader, PicoDisplaySink
+from .storage import Storage, open_storage
 from .weather import DEFAULT_LAT, DEFAULT_LON, OutdoorSource
 
 log = logging.getLogger("collector")
@@ -57,7 +57,7 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p.add_argument(
         "--once",
         action="store_true",
-        help="take a single sample, print it as JSON, and exit (no db write unless --db given explicitly)",
+        help="take a single sample, print it as JSON, and exit (never writes to the db)",
     )
     p.add_argument("--disk-path", default="/", help="filesystem to report usage for (default: /)")
     p.add_argument(
@@ -83,119 +83,56 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
-# Human-readable verdicts for the 16x2 LCD (<= 16 chars).
-_VERDICTS = {
-    "ventilate": "OPEN WINDOW",
-    "keep_closed": "KEEP CLOSED",
-    "comfortable": "COMFORTABLE",
-    "unknown": "NO OUTDOOR DATA",
-}
+def _build_cycle(
+    args: argparse.Namespace,
+    ambient: Optional[AmbientReader],
+    sinks: list[Sink],
+) -> CollectionCycle:
+    """Turn CLI options plus already-started collaborators into a cycle."""
+    advice = None
+    if args.advisor:
+        advice = AdviceStep(Advisor(), OutdoorSource(lat=args.lat, lon=args.lon))
+    if args.pico_display and ambient is not None:
+        sinks = [*sinks, PicoDisplaySink(ambient)]
+    return CollectionCycle(Sampler(disk_path=args.disk_path, ambient_reader=ambient), advice, sinks)
 
 
-def _display_command(reading: Reading) -> Optional[dict]:
-    """Build the Pico display command from an advisor-enriched reading."""
-    state = reading.ventilation_state
-    if state is None or reading.ambient_temp_c is None:
-        return None
-    it, irh = round(reading.ambient_temp_c), round(reading.ambient_humidity_pct or 0)
-    if reading.outdoor_temp_c is not None and reading.outdoor_humidity_pct is not None:
-        line1 = "In%dC%d Out%dC%d" % (it, irh, round(reading.outdoor_temp_c), round(reading.outdoor_humidity_pct))
-    else:
-        line1 = "In %dC %d%%RH" % (it, irh)
-    verdict = _VERDICTS.get(state, state.upper())
-    line2 = ("!" + verdict) if reading.mold_risk else verdict
-    return {
-        "line1": line1[:16],
-        "line2": line2[:16],
-        "state": state,
-        "mold": int(reading.mold_risk or 0),
-    }
-
-
-def _make_ambient_reader(serial_port: Optional[str]) -> Optional[AmbientReader]:
-    if not serial_port:
-        return None
-    return AmbientReader(port=serial_port).start()
-
-
-def _enrich_with_advice(
-    reading: Reading,
-    advisor: Optional[Advisor],
-    weather: Optional[OutdoorSource],
-) -> Reading:
-    """Fill the ventilation-advisor fields on a reading, if enabled and there is
-    an indoor reading to reason about."""
-    if advisor is None or reading.ambient_temp_c is None or reading.ambient_humidity_pct is None:
-        return reading
-    outdoor = weather.current() if weather else None
-    advice = advisor.evaluate(reading.ambient_temp_c, reading.ambient_humidity_pct, outdoor)
-    return dataclasses.replace(reading, **advice.as_reading_fields())
-
-
-def run_once(
-    disk_path: str,
-    serial_port: Optional[str] = None,
-    advisor: Optional[Advisor] = None,
-    weather: Optional[OutdoorSource] = None,
-) -> dict:
-    """Take one sample. CPU% and net rates need an interval to measure over,
-    so prime the sampler, wait briefly, then read."""
-    ambient = _make_ambient_reader(serial_port)
-    sampler = Sampler(disk_path=disk_path, ambient_reader=ambient)
+def _run_once(args: argparse.Namespace, ambient: Optional[AmbientReader]) -> None:
+    """Take one reading and print it. CPU% and net rates need an interval to
+    measure over, so prime the sampler, wait briefly, then read."""
+    cycle = _build_cycle(args, ambient, [StdoutSink()])
     # Give the sensor node a moment to push a first reading over serial.
     time.sleep(3.0 if ambient else 1.0)
-    try:
-        return _enrich_with_advice(sampler.sample(), advisor, weather).as_dict()
-    finally:
-        if ambient:
-            ambient.stop()
+    cycle.tick()
 
 
-def run_loop(
-    db_path: str,
-    interval: float,
-    disk_path: str,
-    serial_port: Optional[str] = None,
-    advisor: Optional[Advisor] = None,
-    weather: Optional[OutdoorSource] = None,
-    pico_display: bool = False,
-) -> None:
+def _run_loop(args: argparse.Namespace, ambient: Optional[AmbientReader], store: Storage) -> None:
     stopper = _Stopper()
-    ambient = _make_ambient_reader(serial_port)
-    sampler = Sampler(disk_path=disk_path, ambient_reader=ambient)
-    with open_storage(db_path) as store:
-        log.info("writing to %s every %.0fs (%d rows so far)", db_path, interval, store.count())
-        if serial_port:
-            log.info("reading ambient sensor from %s", serial_port)
-        if advisor:
-            log.info("ventilation advisor enabled")
-        if pico_display:
-            log.info("pushing advice to the Pico display")
-        while not stopper.stopped:
-            start = time.monotonic()
-            try:
-                reading = _enrich_with_advice(sampler.sample(), advisor, weather)
-                store.write(reading)
-                if pico_display and ambient is not None:
-                    command = _display_command(reading)
-                    if command is not None:
-                        ambient.send(command)
-                log.debug(
-                    "wrote sample cpu=%.1f%% ambient=%s vent=%s",
-                    reading.cpu_percent, reading.ambient_temp_c, reading.ventilation_state,
-                )
-            except Exception:  # keep the loop alive across transient failures
-                log.exception("sample/write failed, continuing")
-            # Sleep the remainder of the interval, interruptibly.
-            elapsed = time.monotonic() - start
-            remaining = interval - elapsed
-            while remaining > 0 and not stopper.stopped:
-                nap = min(1.0, remaining)
-                time.sleep(nap)
-                remaining -= nap
-        if ambient:
-            ambient.stop()
-        log.info("stopped (%d rows total)", store.count())
+    cycle = _build_cycle(args, ambient, [store])
+    log.info("writing to %s every %.0fs (%d rows so far)", args.db, args.interval, store.count())
+    if ambient:
+        log.info("reading ambient sensor from %s", args.serial_port)
+    if cycle.advice:
+        log.info("ventilation advisor enabled")
+    if args.pico_display:
+        log.info("pushing advice to the Pico display")
+    while not stopper.stopped:
+        start = time.monotonic()
+        try:
+            reading = cycle.tick()
+            log.debug(
+                "wrote sample cpu=%.1f%% ambient=%s vent=%s",
+                reading.cpu_percent, reading.ambient_temp_c, reading.ventilation_state,
+            )
+        except Exception:  # keep the loop alive across transient failures
+            log.exception("sample failed, continuing")
+        # Sleep the remainder of the interval, interruptibly.
+        remaining = args.interval - (time.monotonic() - start)
+        while remaining > 0 and not stopper.stopped:
+            nap = min(1.0, remaining)
+            time.sleep(nap)
+            remaining -= nap
+    log.info("stopped (%d rows total)", store.count())
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -205,14 +142,15 @@ def main(argv: Optional[list[str]] = None) -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    advisor = Advisor() if args.advisor else None
-    weather = OutdoorSource(lat=args.lat, lon=args.lon) if args.advisor else None
-
-    if args.once:
-        print(json.dumps(run_once(args.disk_path, args.serial_port, advisor, weather), indent=2))
-        return 0
-
-    run_loop(args.db, args.interval, args.disk_path, args.serial_port, advisor, weather, args.pico_display)
+    with ExitStack() as stack:
+        ambient = None
+        if args.serial_port:
+            ambient = AmbientReader(port=args.serial_port).start()
+            stack.callback(ambient.stop)
+        if args.once:
+            _run_once(args, ambient)
+        else:
+            _run_loop(args, ambient, stack.enter_context(open_storage(args.db)))
     return 0
 
 
